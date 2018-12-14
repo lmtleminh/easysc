@@ -1,0 +1,33 @@
+Package: easysc
+Type: Package
+Title: General Scorecard buiding functions
+Version: 0.1.0
+Authors@R: person('Tri', 'Le', email = 'lmtleminh@gmail.com',
+               role = c('aut', 'cre')) 
+Maintainer: Tri Le <lmtleminh@gmail.com>
+Description: This makes credit scoring easy.
+License: GPL-2
+Encoding: UTF-8
+LazyData: true
+Imports:
+    party,
+    dplyr,
+    plyr,
+    stats,
+    magrittr,
+    tibble,
+    stringr,
+    smbinning,
+    parallel,
+    doParallel,
+    foreach,
+    tibble, 
+    broom,
+    tidyr,
+    ggplot2,
+    ROCR
+Suggests: 
+    testthat
+RoxygenNote: 6.1.1
+URL: http://github.com/lmtleminh/easysc
+BugReports: http://github.com/lmtleminh/easysc/issues
