@@ -165,11 +165,11 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
                                                   maxx = max(x[['X']]), minx = min(x[['X']]))))
       df4 <- df3[which(df3[["n"]] > n1 & df3[["b"]] > n2 & df3[["g"]] > n2), ]
       df2$good <- 1 -  df2[['y']]
-      out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])$ivtable
-      return(data.frame(iv = out$IV[length(out$IV)], nbin = nrow(out) - 2,
+      out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])[['ivtable']]
+      return(data.frame(iv = out[['IV']][length(out[['IV']])], nbin = nrow(out) - 2,
                         cuts = I(list(df4[['maxx']][-nrow(df4)])),
                         abs_cor = abs(cor(as.numeric(row.names(out)[1:(nrow(out) - 2)]),
-                                          out$WoE[1:(nrow(out) - 2)], method = "spearman"))))
+                                          out[['WoE']][1:(nrow(out) - 2)], method = "spearman"))))
     }
     if (parallel) {
       mc <- parallel::detectCores() - 1
