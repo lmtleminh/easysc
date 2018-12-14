@@ -200,6 +200,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
     finalBin <- spb
     if (best) {
       smb <- smbinning::smbinning(data.frame(X, y), 'y', 'X', p = p / 100)
+      #fixing smb give no split
       if (smb == "No significant splits") {
         smb.cuts <- 0
         smb.iv <- -1
