@@ -165,7 +165,9 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
                                                   maxx = max(x[['X']]), minx = min(x[['X']]))))
       df4 <- df3[which(df3[["n"]] > n1 & df3[["b"]] > n2 & df3[["g"]] > n2), ]
       df2$good <- 1 -  df2[['y']]
-      out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])[['ivtable']]
+      out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])
+      if (out == "No Bins") return(NULL)
+      out <- out$ivtable
       return(data.frame(iv = out[['IV']][length(out[['IV']])], nbin = nrow(out) - 2,
                         cuts = I(list(df4[['maxx']][-nrow(df4)])),
                         abs_cor = abs(cor(as.numeric(row.names(out)[1:(nrow(out) - 2)]),
@@ -186,6 +188,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
     }
     #bump_out <- Reduce(rbind, lapply(seeds, bin))
     ### FIND THE CUT MAXIMIZING THE INFORMATION VALUE ###
+    if (is.null(bump_out)) return(NULL)
     cut2 <- bump_out[order(-bump_out["abs_cor"], -bump_out["iv"], bump_out["nbin"]), ]$cuts[[1]]
     return(cut2)
   }
@@ -210,10 +213,15 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
         attr(smb.cuts, 'method') <- 'smb'
       }
       bpb <- bump_bin(X, y, n, p = p / 100, parallel)
-      attr(bpb, 'method') <- 'bpb'
+      if (is.null(bpb)) {
+        bpb.iv <- -1
+      } else {
+        bpb.iv <- woeZ(cut(X, breaks = c(-Inf, bpb, Inf)), y)
+        attr(bpb, 'method') <- 'bpb'
+      }
       iv <- c(spb = woeZ(cut(X, breaks = c(-Inf, spb, Inf)), y),
               smb = smb.iv,
-              bpb = woeZ(cut(X, breaks = c(-Inf, bpb, Inf)), y))
+              bpb = bpb.iv)
       finalBin <- switch(names(which.max(iv)),
                          spb = spb,
                          smb = smb.cuts,
