@@ -240,11 +240,6 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
   structure(cut_plan, class = 'cut.plan')
 }
 
-
-#' @export
-update <- function(cut_plan, ...){
-  UseMethod('update')
-}
 #' @method update cut.plan
 #' @export
 #for manual updating
@@ -266,10 +261,6 @@ update.cut.plan <- function(cut_plan, ...) {
   return(cut_plan)
 }
 
-#' @export
-predict <- function(cut_plan, ...){
-  UseMethod('predict')
-}
 #' @method predict cut.plan
 #' @export
 #for applying to data frame

@@ -158,10 +158,6 @@ sc.cat.binning <- function(data, target, n = 10, uni = 4, parallel = FALSE) {
   structure(segmt, class = 'group.plan')
 }
 
-#' @export
-update <- function(segmt, ...){
-  UseMethod('update')
-}
 #' @method update group.plan
 #' @export
 update.group.plan <- function(segmt, ...){
@@ -183,10 +179,6 @@ update.group.plan <- function(segmt, ...){
   return(segmt)
 }
 
-#' @export
-predict <- function(segmt, ...){
-  UseMethod('predict')
-}
 #' @method predict group.plan
 #' @export
 predict.group.plan <- function(segmt, data, keepTarget = FALSE) {
