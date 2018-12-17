@@ -158,11 +158,12 @@ sc.cat.binning <- function(data, target, n = 10, uni = 4, parallel = FALSE) {
   structure(segmt, class = 'group.plan')
 }
 
-#' @export update
-update <- function(...){
+#' @export
+update <- function(segmt, ...){
   UseMethod('update')
 }
 #' @method update group.plan
+#' @export
 update.group.plan <- function(segmt, ...){
   un_arg <- list(...)
   if (class(segmt) != 'group.plan') {
@@ -182,11 +183,12 @@ update.group.plan <- function(segmt, ...){
   return(segmt)
 }
 
-#' @export predict
-predict <- function(...){
+#' @export
+predict <- function(segmt, ...){
   UseMethod('predict')
 }
 #' @method predict group.plan
+#' @export
 predict.group.plan <- function(segmt, data, keepTarget = FALSE) {
   if (class(segmt) != 'group.plan') {
     stop('Not a group plan!')
