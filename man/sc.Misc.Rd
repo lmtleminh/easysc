@@ -5,6 +5,7 @@
 \alias{sc.score}
 \alias{sc.point}
 \alias{sc.corplot}
+\alias{sc.performance}
 \title{Miscellaneous tools for Credit Scoring}
 \usage{
 sc.score(data, model, pdo, score, odd)
@@ -12,6 +13,8 @@ sc.score(data, model, pdo, score, odd)
 sc.point(data, woe, model, pdo, score, odd)
 
 sc.corplot(model, data, s = NULL)
+
+sc.performance(model, X, y, s = NULL, plot = F)
 }
 \arguments{
 \item{data}{A data frame which contains target varible as well as predictor variables.}
@@ -28,6 +31,12 @@ sc.corplot(model, data, s = NULL)
 
 \item{s}{In case of using \code{\link[glmnet:cv.glmnet]{Lasso}} model. Lambda min or
 lambda at 1se is chosen.}
+
+\item{X}{A data frame which has only predictor variables.}
+
+\item{y}{A vector of target variable.}
+
+\item{plot}{A logical scalar. Plot ROC curve.}
 }
 \value{
 \code{\link{sc.score}}. The output is a data frame with chosen variables in the model. All variables are in score point.

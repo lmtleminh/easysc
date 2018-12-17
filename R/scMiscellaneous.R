@@ -124,6 +124,10 @@ sc.corplot <- function(model, data, s = NULL) {
     scale_colour_gradient(low = 'blue', high = 'red')
 }
 
+#' @rdname sc.Misc
+#' @param X A data frame which has only predictor variables.
+#' @param y A vector of target variable.
+#' @param plot A logical scalar. Plot ROC curve.
 #' @export
 #performance calculation
 sc.performance <- function(model, X, y, s = NULL, plot = F) {
