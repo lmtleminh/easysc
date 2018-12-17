@@ -195,6 +195,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
   bestbin <- function(X, y, n = 10, p = 3, thres = .5, uni = 4, name = NULL, best = T, parallel = FALSE) {
     print(paste0(name, '...'))
     u <- unique(X)
+    if (uni < 4) uni <- 3
     if (!(class(X) %in% c('numeric', 'integer')) | length(u) <= uni) {
       return(NULL)
     }
@@ -229,6 +230,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
     }
     return(finalBin)
   }
+  if (uni < 4) warning('Unique values too small can cause errors!')
   cut_plan <- lapply(names(data), function(x)
     bestbin(data[[x]], y, n, p, thres, uni, x, best, parallel)
   )
