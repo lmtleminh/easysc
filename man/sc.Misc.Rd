@@ -45,6 +45,8 @@ lambda at 1se is chosen.}
 \code{\link{sc.point}}. The output is a list with chosen variables in the model. Variables with their values and score point.
 
 \code{\link{sc.corplot}}. The output plot is generated showing correlated variables.
+
+\code{\link{sc.performance}}. The output GINI & KS is printed.
 }
 \description{
 These are set of tools for easy credit scorecard build. The set includes \code{\link{sc.score}},

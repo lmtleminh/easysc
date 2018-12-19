@@ -128,6 +128,7 @@ sc.corplot <- function(model, data, s = NULL) {
 #' @param X A data frame which has only predictor variables.
 #' @param y A vector of target variable.
 #' @param plot A logical scalar. Plot ROC curve.
+#' @return \code{\link{sc.performance}}. The output GINI & KS is printed.
 #' @export
 #performance calculation
 sc.performance <- function(model, X, y, s = NULL, plot = F) {
@@ -143,14 +144,24 @@ sc.performance <- function(model, X, y, s = NULL, plot = F) {
   } else if (any(class(model) %in% c('train', 'train.formula'))) {
     prob <- predict(model, X, type = 'prob')[1]
   }
-  pred <- ROCR::prediction(1-prob, y)
-  perf <- ROCR::performance(pred, 'tpr', 'fpr')
-  auc <- attr(ROCR::performance(pred, 'auc'), 'y.values')[[1]]
-  ks <- max(attr(perf, 'y.values')[[1]] - attr(perf, 'x.values')[[1]])
-  gini <- 2 * auc - 1
+  cal <- function(prob, y, plot = F) {
+    pred <- ROCR::prediction(prob, y)
+    perf <- ROCR::performance(pred, 'tpr', 'fpr')
+    auc <- attr(ROCR::performance(pred, 'auc'), 'y.values')[[1]]
+    ks <- max(attr(perf, 'y.values')[[1]] - attr(perf, 'x.values')[[1]])
+    gini <- 2 * auc - 1
+    if (plot) return(perf)
+    else return(c(gini, ks))
+  }
+  result <- cal(1 - prob, y)
+  perfs <- cal(1 - prob, y, plot = T)
+  if (result[1] < 0) {
+    result <- cal(prob, y)
+    perfs <- cal(prob, y, plot = T)
+  }
   if (plot) {
-    plot(perf)
+    plot(perfs)
     abline(0, 1)
   }
-  return(list(GINI = gini, KS = ks))
+  return(list(GINI = result[1], KS = result[2]))
 }
