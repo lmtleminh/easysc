@@ -186,6 +186,20 @@ bump_bin <- function(X, y, n, p, parallel = FALSE) {
   cut2 <- bump_out[order(-bump_out["abs_cor"], -bump_out["iv"], bump_out["nbin"]), ]$cuts[[1]]
   return(cut2)
 }
+#establish threshold
+thresd <- function(data, m, thres) {
+  tbl <- data %>%
+    dplyr::mutate(X = cut(X, breaks = c(-Inf, m, Inf))) %>%
+    dplyr::group_by(X) %>%
+    dplyr::summarise(
+      pct_bad = mean(y) * 100,
+      pct_n = n()/nrow(data) * 100
+    )
+  tbl$dif <- c(diff(tbl$pct_bad), 0)
+  tbl$m <- c(m, m[length(m)])
+  return(unique(tbl$m[abs(tbl$dif) >= thres]))
+}
+
 #unregistering foreach backend
 unregister <- function(parallel = FALSE) {
   if (parallel) {
@@ -217,14 +231,15 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
         smb.cuts <- 0
         smb.iv <- -1
       } else {
-        smb.cuts <- smb$cuts
-        smb.iv <- smb$iv
+        smb.cuts <- thresd(data.frame(X, y), smb$cuts, thres)
+        smb.iv <- woeZ(cut(X, breaks = c(-Inf, smb.cuts, Inf)), y)
         attr(smb.cuts, 'method') <- 'smb'
       }
       bpb <- bump_bin(X, y, n, p = p / 100, parallel)
       if (is.null(bpb)) {
         bpb.iv <- -1
       } else {
+        bpb <- thresd(data.frame(X, y), bpb, thres)
         bpb.iv <- woeZ(cut(X, breaks = c(-Inf, bpb, Inf)), y)
         attr(bpb, 'method') <- 'bpb'
       }
@@ -245,6 +260,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
   cut_plan <- lapply(names(data), function(x)
     bestbin(data[[x]], y, n, p, thres, x, best, parallel)
   )
+  unregister(parallel)
   names(cut_plan) <- names(data)
   end_time <- Sys.time()
   diff = end_time - start_time
