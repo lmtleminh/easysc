@@ -17,7 +17,8 @@ NULL
 #' @param n Number of bootstrap iterations. Default 10 times.
 #' @param p The minimum percentage of observation per bin. Default 3\%.
 #' @param thres Threshold differences of target between bins. Default 0.5\%.
-#' @param uni The minimum number of unique values within predictor variables. Default 4.
+#' @param freqCut Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the ratio of the most common value to the second most common value. Default 95/5.
+#' @param uniqueCut Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the percentage of distinct values out of the number of total samples. Default 10\%.
 #' @param best A logical scalar. Use different methods which maximize IV. Default TRUE.
 #' @param parallel A logical scalar. Use parallel backend. Default FALSE.
 #'
@@ -39,7 +40,7 @@ NULL
 #' }
 #for numeric binning
 #' @export
-sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = TRUE, parallel = FALSE) {
+sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, uniqueCut = 10, best = TRUE, parallel = FALSE) {
   start_time <- Sys.time()
   target <- deparse(substitute(target))
   if (!(target %in% names(data)))
@@ -192,11 +193,9 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
     cut2 <- bump_out[order(-bump_out["abs_cor"], -bump_out["iv"], bump_out["nbin"]), ]$cuts[[1]]
     return(cut2)
   }
-  bestbin <- function(X, y, n = 10, p = 3, thres = .5, uni = 4, name = NULL, best = T, parallel = FALSE) {
+  bestbin <- function(X, y, n = 10, p = 3, thres = .5, name = NULL, best = T, parallel = FALSE) {
     print(paste0(name, '...'))
-    u <- unique(X)
-    if (uni < 4) uni <- 3
-    if (!(class(X) %in% c('numeric', 'integer')) | length(u) <= uni) {
+    if (!(class(X) %in% c('numeric', 'integer')) | length(unique(X)) <= 4) {
       return(NULL)
     }
     spb <- superbin(X, y, n, p, thres, parallel)
@@ -230,9 +229,11 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, uni = 4, best = 
     }
     return(finalBin)
   }
-  if (uni < 4) warning('Unique values too small can cause errors!')
+  nzv <- caret::nearZeroVar(data, freqCut = freqCut, uniqueCut = uniqueCut,
+                            foreach = parallel, allowParallel = parallel)
+  data[, nzv] <- 0
   cut_plan <- lapply(names(data), function(x)
-    bestbin(data[[x]], y, n, p, thres, uni, x, best, parallel)
+    bestbin(data[[x]], y, n, p, thres, x, best, parallel)
   )
   names(cut_plan) <- names(data)
   end_time <- Sys.time()

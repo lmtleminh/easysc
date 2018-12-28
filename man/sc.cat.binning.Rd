@@ -4,7 +4,7 @@
 \alias{sc.cat.binning}
 \title{Categorical binning for Credit Scoring}
 \usage{
-sc.cat.binning(data, target, n = 10, uni = 4, parallel = FALSE)
+sc.cat.binning(data, target, n = 10, unique = 4, parallel = FALSE)
 }
 \arguments{
 \item{data}{A data frame which contains target varible as well as predictor variables.}
@@ -13,7 +13,7 @@ sc.cat.binning(data, target, n = 10, uni = 4, parallel = FALSE)
 
 \item{n}{Number of bootstrap iterations. Default 10 times.}
 
-\item{uni}{The minimum number of unique values within predictor variables. Default 4.}
+\item{unique}{The minimum number of unique values within predictor variables. Default 4.}
 
 \item{parallel}{A logical scalar. Use parallel backend. Default FALSE.}
 }

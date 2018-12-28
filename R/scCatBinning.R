@@ -13,7 +13,7 @@
 #' @param data A data frame which contains target varible as well as predictor variables.
 #' @param target Target variable name.
 #' @param n Number of bootstrap iterations. Default 10 times.
-#' @param uni The minimum number of unique values within predictor variables. Default 4.
+#' @param unique The minimum number of unique values within predictor variables. Default 4.
 #' @param parallel A logical scalar. Use parallel backend. Default FALSE.
 #'
 #' @return The output is a list of group plan which can be applied to the orginal data frame via
@@ -36,11 +36,11 @@
 
 #for categorical binning
 #' @export
-sc.cat.binning <- function(data, target, n = 10, uni = 4, parallel = FALSE) {
+sc.cat.binning <- function(data, target, n = 10, unique = 4, parallel = FALSE) {
   start_time <- Sys.time()
-  auto_seg <- function(X, y, n, uni, na, parallel = FALSE) {
+  auto_seg <- function(X, y, n, unique, na, parallel = FALSE) {
     print(paste0(na, '...'))
-    if (class(X) != 'factor' | length(unique(X)) <= uni) return(NULL)
+    if (class(X) != 'factor' | length(unique(X)) <= unique) return(NULL)
     start_time <- Sys.time()
     dataX <- data.frame(X, y)
     seeds <- c(0, round(runif(n) * as.numeric(paste('1e', ceiling(log10(n)) + 2, sep = '')), 0))
@@ -148,7 +148,7 @@ sc.cat.binning <- function(data, target, n = 10, uni = 4, parallel = FALSE) {
   y <- data[[target]]
   data[,target] <- NULL
   segmt <- lapply(names(data), function(x)
-    auto_seg(data[[x]], y, n, uni, x, parallel)
+    auto_seg(data[[x]], y, n, unique, x, parallel)
   )
   names(segmt) <- names(data)
   end_time <- Sys.time()

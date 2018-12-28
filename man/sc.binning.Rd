@@ -4,8 +4,8 @@
 \alias{sc.binning}
 \title{Numeric binning for Credit Scoring}
 \usage{
-sc.binning(data, target, n = 10, p = 3, thres = 0.5, uni = 4,
-  best = TRUE, parallel = FALSE)
+sc.binning(data, target, n = 10, p = 3, thres = 0.5,
+  freqCut = 95/5, uniqueCut = 10, best = TRUE, parallel = FALSE)
 }
 \arguments{
 \item{data}{A data frame which contains target varible as well as predictor variables.}
@@ -18,7 +18,9 @@ sc.binning(data, target, n = 10, p = 3, thres = 0.5, uni = 4,
 
 \item{thres}{Threshold differences of target between bins. Default 0.5\%.}
 
-\item{uni}{The minimum number of unique values within predictor variables. Default 4.}
+\item{freqCut}{Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the ratio of the most common value to the second most common value. Default 95/5.}
+
+\item{uniqueCut}{Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the percentage of distinct values out of the number of total samples. Default 10\%.}
 
 \item{best}{A logical scalar. Use different methods which maximize IV. Default TRUE.}
 
