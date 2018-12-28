@@ -38,6 +38,161 @@ NULL
 #' # Apply to the data frame
 #' predict(cut.plan, df, keepTarget = TRUE)
 #' }
+#woe calculation
+woeZ <- function(X, y) {
+  df <- tibble::tibble(X, yZ = y) %>%
+    dplyr::group_by(X) %>%
+    dplyr::summarise(
+      pct_bad = sum(yZ)/sum(y),
+      pct_good = sum(1-yZ)/sum(1-y),
+      woe = log(pct_good/pct_bad),
+      iv = (pct_good - pct_bad)*woe
+    )
+  return(sum(df$iv))
+}
+#spb method
+superbin <- function(X, y, n = 10, p = 3, thres = .5, parallel = FALSE) {
+  data <- data.frame(X, y)
+  tree_bin <- function(seed, data) {
+    if (seed == 0) b <- 1:nrow(data)
+    else {
+      set.seed(seed)
+      b <- sample(nrow(data), nrow(data), replace = T)
+    }
+    t <- party::ctree(factor(y) ~ ., data = data[b,],
+                      controls = party::ctree_control(maxdepth = 2))
+    c(t@tree$psplit$splitpoint,
+      t@tree$left$psplit$splitpoint,
+      t@tree$right$psplit$splitpoint)
+  }
+  seeds <- c(0, round(runif(n) * as.numeric(paste('1e', ceiling(log10(n)) + 2, sep = '')), 0))
+  x <- c()
+  if (parallel) {
+    mc <- parallel::detectCores() - 1
+    cl <- parallel::makeCluster(mc)
+    doParallel::registerDoParallel(cl)
+    foreach::foreach(s = seeds, .combine = 'c') %dopar% {
+      tree_bin(s, data)
+    } -> x
+    parallel::stopCluster(cl)
+  } else {
+    foreach::foreach(s = seeds, .combine = 'c') %do% {
+      tree_bin(s, data)
+    } -> x
+  }
+  m <- table(x) %>% as.matrix()
+  if (!is.null(m) & length(m) > 1) {
+    m <- data.frame(x = as.numeric(rownames(m)), Freq = m)
+    m$Check <- 1
+    for (i in 1:(nrow(m)-1)) {
+      if (m[i + 1,'x'] == m[i,'x'] + 1 & m[i + 1, 'Freq'] >= m[i, 'Freq'])
+        m[i,'Check'] <- 0
+      if (i >= 2) {
+        if (m[i - 1,'x'] == m[i,'x'] - 1 & m[i - 1, 'Freq'] >= m[i, 'Freq'])
+          m[i,'Check'] <- 0
+      }
+    }
+    m <- m[m$Check == 1,]
+    m$w <- (m$Freq - min(m$Freq)) / (max(m$Freq) - min(m$Freq))
+    m <- m[m$w >=.2, 'x']
+    woeC <- woeZ(cut(X, breaks = c(-Inf, m, Inf)), y)
+    len <- length(m)
+    findMonotonic <- function(m) {
+      l1 <- length(m)
+      tbl <- data %>%
+        dplyr::mutate(X = cut(X, breaks = c(-Inf, m, Inf))) %>%
+        dplyr::group_by(X) %>%
+        dplyr::summarise(
+          pct_bad = mean(y) * 100,
+          pct_n = n()/nrow(data) * 100
+        )
+      tbl$dif <- c(diff(tbl$pct_bad), 0)
+      tbl$sign <- sign(tbl$dif)
+      tbl$m <- c(m, m[length(m)])
+      tbl$rk <- sign(sum(tbl$sign)) * 1:nrow(tbl)
+      reg <- isoreg(tbl$rk, tbl$pct_bad)
+      cut <- knots(as.stepfun(reg))
+      m <- unique(tbl$m[tbl$rk %in% cut])
+      l2 <- length(m)
+      if (l1 == l2) {
+        m <- unique(tbl$m[abs(tbl$dif) >= thres])
+        l2 <- length(m)
+      }
+      if (l1 == l2) {
+        m <- unique(tbl$m[tbl$pct_n >= p])
+      }
+      return(m)
+    }
+    while(length(m) > length(findMonotonic(m))) {
+      m <- findMonotonic(m)
+      woeC <- c(woeC, woeZ(cut(X, breaks = c(-Inf, m, Inf)), y))
+      len <- c(len, length(m))
+    }
+  } else {
+    m <- rownames(m)
+  }
+  return(m)
+}
+#bpb method - based on this post https://statcompute.wordpress.com/2018/11/25/improving-binning-by-bootstrap-bumping/
+bump_bin <- function(X, y, n, p, parallel = FALSE) {
+  n1 <- round(p * length(y), 0)
+  n2 <- 10
+  #set.seed(2019)
+  seeds <- c(0, round(runif(n) * as.numeric(paste('1e', ceiling(log10(n)) + 2, sep = '')), 0))
+  df1 <- data.frame(X, y)
+  df2 <- df1[!is.na(df1[, 'X']), c('X', 'y')]
+  cor <- cor(df2[, 2], df2[, 1], method = "spearman", use = "complete.obs")
+  ### MONOTONIC BINNING WITH BOOTSTRAP SAMPLES ###
+  bin <- function(seed, df2) {
+    if (seed == 0) b <- 1:nrow(df2)
+    else {
+      set.seed(seed)
+      b <- sample(nrow(df2), nrow(df2), replace = T)
+    }
+    smp <- df2
+    reg <- isoreg(smp[, 1], cor / abs(cor) * smp[, 2])
+    cut <- knots(as.stepfun(reg))
+    df2$cut <- cut(df2[['X']], breaks = unique(cut), include.lowest = T)
+    df3 <- Reduce(rbind,
+                  lapply(split(df2, df2$cut),
+                         function(x) data.frame(n = nrow(x), b = sum(x[['y']]), g = sum(1 - x[['y']]),
+                                                maxx = max(x[['X']]), minx = min(x[['X']]))))
+    df4 <- df3[which(df3[["n"]] > n1 & df3[["b"]] > n2 & df3[["g"]] > n2), ]
+    df2$good <- 1 -  df2[['y']]
+    out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])
+    if (out == "No Bins") return(NULL)
+    out <- out$ivtable
+    return(data.frame(iv = out[['IV']][length(out[['IV']])], nbin = nrow(out) - 2,
+                      cuts = I(list(df4[['maxx']][-nrow(df4)])),
+                      abs_cor = abs(cor(as.numeric(row.names(out)[1:(nrow(out) - 2)]),
+                                        out[['WoE']][1:(nrow(out) - 2)], method = "spearman"))))
+  }
+  if (parallel) {
+    mc <- parallel::detectCores() - 1
+    cl <- parallel::makeCluster(mc)
+    doParallel::registerDoParallel(cl)
+    foreach::foreach(s = seeds, .combine = 'rbind') %dopar% {
+      bin(s, df2)
+    } -> bump_out
+    parallel::stopCluster(cl)
+  } else {
+    foreach::foreach(s = seeds, .combine = 'rbind') %do% {
+      bin(s, df2)
+    } -> bump_out
+  }
+  #bump_out <- Reduce(rbind, lapply(seeds, bin))
+  ### FIND THE CUT MAXIMIZING THE INFORMATION VALUE ###
+  if (is.null(bump_out)) return(NULL)
+  cut2 <- bump_out[order(-bump_out["abs_cor"], -bump_out["iv"], bump_out["nbin"]), ]$cuts[[1]]
+  return(cut2)
+}
+#unregistering foreach backend
+unregister <- function(parallel = FALSE) {
+  if (parallel) {
+    env <- foreach:::.foreachGlobals
+    rm(list = ls(name = env), pos = env)
+  }
+}
 #for numeric binning
 #' @export
 sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, uniqueCut = 10, best = TRUE, parallel = FALSE) {
@@ -47,152 +202,6 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
     stop(paste0(target, ' is not exist!'))
   y <- data[[target]]
   data[,target] <- NULL
-  woeZ <- function(X, y) {
-    df <- tibble::tibble(X, yZ = y) %>%
-      dplyr::group_by(X) %>%
-      dplyr::summarise(
-        pct_bad = sum(yZ)/sum(y),
-        pct_good = sum(1-yZ)/sum(1-y),
-        woe = log(pct_good/pct_bad),
-        iv = (pct_good - pct_bad)*woe
-      )
-    return(sum(df$iv))
-  }
-  superbin <- function(X, y, n = 10, p = 3, thres = .5, parallel = FALSE) {
-    data <- data.frame(X, y)
-    tree_bin <- function(seed, data) {
-      if (seed == 0) b <- 1:nrow(data)
-      else {
-        set.seed(seed)
-        b <- sample(nrow(data), nrow(data), replace = T)
-      }
-      t <- party::ctree(factor(y) ~ ., data = data[b,],
-                        controls = party::ctree_control(maxdepth = 2))
-      c(t@tree$psplit$splitpoint,
-        t@tree$left$psplit$splitpoint,
-        t@tree$right$psplit$splitpoint)
-    }
-    seeds <- c(0, round(runif(n) * as.numeric(paste('1e', ceiling(log10(n)) + 2, sep = '')), 0))
-    x <- c()
-    if (parallel) {
-      mc <- parallel::detectCores() - 1
-      cl <- parallel::makeCluster(mc)
-      doParallel::registerDoParallel(cl)
-      foreach::foreach(s = seeds, .combine = 'c') %dopar% {
-        tree_bin(s, data)
-      } -> x
-      parallel::stopCluster(cl)
-    } else {
-      foreach::foreach(s = seeds, .combine = 'c') %do% {
-        tree_bin(s, data)
-      } -> x
-    }
-    m <- table(x) %>% as.matrix()
-    if (!is.null(m) & length(m) > 1) {
-      m <- data.frame(x = as.numeric(rownames(m)), Freq = m)
-      m$Check <- 1
-      for (i in 1:(nrow(m)-1)) {
-        if (m[i + 1,'x'] == m[i,'x'] + 1 & m[i + 1, 'Freq'] >= m[i, 'Freq'])
-          m[i,'Check'] <- 0
-        if (i >= 2) {
-          if (m[i - 1,'x'] == m[i,'x'] - 1 & m[i - 1, 'Freq'] >= m[i, 'Freq'])
-            m[i,'Check'] <- 0
-        }
-      }
-      m <- m[m$Check == 1,]
-      m$w <- (m$Freq - min(m$Freq)) / (max(m$Freq) - min(m$Freq))
-      m <- m[m$w >=.2, 'x']
-      woeC <- woeZ(cut(X, breaks = c(-Inf, m, Inf)), y)
-      len <- length(m)
-      findMonotonic <- function(m) {
-        l1 <- length(m)
-        tbl <- data %>%
-          dplyr::mutate(X = cut(X, breaks = c(-Inf, m, Inf))) %>%
-          dplyr::group_by(X) %>%
-          dplyr::summarise(
-            pct_bad = mean(y) * 100,
-            pct_n = n()/nrow(data) * 100
-          )
-        tbl$dif <- c(diff(tbl$pct_bad), 0)
-        tbl$sign <- sign(tbl$dif)
-        tbl$m <- c(m, m[length(m)])
-        tbl$rk <- sign(sum(tbl$sign)) * 1:nrow(tbl)
-        reg <- isoreg(tbl$rk, tbl$pct_bad)
-        cut <- knots(as.stepfun(reg))
-        m <- unique(tbl$m[tbl$rk %in% cut])
-        l2 <- length(m)
-        if (l1 == l2) {
-          m <- unique(tbl$m[abs(tbl$dif) >= thres])
-          l2 <- length(m)
-        }
-        if (l1 == l2) {
-          m <- unique(tbl$m[tbl$pct_n >= p])
-        }
-        return(m)
-      }
-      while(length(m) > length(findMonotonic(m))) {
-        m <- findMonotonic(m)
-        woeC <- c(woeC, woeZ(cut(X, breaks = c(-Inf, m, Inf)), y))
-        len <- c(len, length(m))
-      }
-    } else {
-      m <- rownames(m)
-    }
-    return(m)
-  }
-  #based on this post https://statcompute.wordpress.com/2018/11/25/improving-binning-by-bootstrap-bumping/
-  bump_bin <- function(X, y, n, p, parallel = FALSE) {
-    n1 <- round(p * length(y), 0)
-    n2 <- 10
-    #set.seed(2019)
-    seeds <- c(0, round(runif(n) * as.numeric(paste('1e', ceiling(log10(n)) + 2, sep = '')), 0))
-    df1 <- data.frame(X, y)
-    df2 <- df1[!is.na(df1[, 'X']), c('X', 'y')]
-    cor <- cor(df2[, 2], df2[, 1], method = "spearman", use = "complete.obs")
-    ### MONOTONIC BINNING WITH BOOTSTRAP SAMPLES ###
-    bin <- function(seed, df2) {
-      if (seed == 0) b <- 1:nrow(df2)
-      else {
-        set.seed(seed)
-        b <- sample(nrow(df2), nrow(df2), replace = T)
-      }
-      smp <- df2
-      reg <- isoreg(smp[, 1], cor / abs(cor) * smp[, 2])
-      cut <- knots(as.stepfun(reg))
-      df2$cut <- cut(df2[['X']], breaks = unique(cut), include.lowest = T)
-      df3 <- Reduce(rbind,
-                    lapply(split(df2, df2$cut),
-                           function(x) data.frame(n = nrow(x), b = sum(x[['y']]), g = sum(1 - x[['y']]),
-                                                  maxx = max(x[['X']]), minx = min(x[['X']]))))
-      df4 <- df3[which(df3[["n"]] > n1 & df3[["b"]] > n2 & df3[["g"]] > n2), ]
-      df2$good <- 1 -  df2[['y']]
-      out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])
-      if (out == "No Bins") return(NULL)
-      out <- out$ivtable
-      return(data.frame(iv = out[['IV']][length(out[['IV']])], nbin = nrow(out) - 2,
-                        cuts = I(list(df4[['maxx']][-nrow(df4)])),
-                        abs_cor = abs(cor(as.numeric(row.names(out)[1:(nrow(out) - 2)]),
-                                          out[['WoE']][1:(nrow(out) - 2)], method = "spearman"))))
-    }
-    if (parallel) {
-      mc <- parallel::detectCores() - 1
-      cl <- parallel::makeCluster(mc)
-      doParallel::registerDoParallel(cl)
-      foreach::foreach(s = seeds, .combine = 'rbind') %dopar% {
-        bin(s, df2)
-      } -> bump_out
-      parallel::stopCluster(cl)
-    } else {
-      foreach::foreach(s = seeds, .combine = 'rbind') %do% {
-        bin(s, df2)
-      } -> bump_out
-    }
-    #bump_out <- Reduce(rbind, lapply(seeds, bin))
-    ### FIND THE CUT MAXIMIZING THE INFORMATION VALUE ###
-    if (is.null(bump_out)) return(NULL)
-    cut2 <- bump_out[order(-bump_out["abs_cor"], -bump_out["iv"], bump_out["nbin"]), ]$cuts[[1]]
-    return(cut2)
-  }
   bestbin <- function(X, y, n = 10, p = 3, thres = .5, name = NULL, best = T, parallel = FALSE) {
     print(paste0(name, '...'))
     if (!(class(X) %in% c('numeric', 'integer')) | length(unique(X)) <= 4) {
@@ -227,6 +236,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
                          smb = smb.cuts,
                          bpb = bpb)
     }
+    unregister(parallel)
     return(finalBin)
   }
   nzv <- caret::nearZeroVar(data, freqCut = freqCut, uniqueCut = uniqueCut,
