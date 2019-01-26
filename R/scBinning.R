@@ -94,6 +94,7 @@ superbin <- function(X, y, n = 10, p = 3, thres = .5, parallel = FALSE) {
     }
     m <- m[m$Check == 1,]
     m$w <- (m$Freq - min(m$Freq)) / (max(m$Freq) - min(m$Freq))
+    m$w[is.na(m$w)] <- 1
     m <- m[m$w >=.2, 'x']
     woeC <- woeZ(cut(X, breaks = c(-Inf, m, Inf)), y)
     len <- length(m)
