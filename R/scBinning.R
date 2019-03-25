@@ -211,6 +211,7 @@ unregister <- function(parallel = FALSE) {
 #for numeric binning
 #' @export
 sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, uniqueCut = 10, best = TRUE, parallel = FALSE) {
+  unregister(parallel)
   start_time <- Sys.time()
   target <- deparse(substitute(target))
   if (!(target %in% names(data)))
