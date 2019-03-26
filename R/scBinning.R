@@ -20,7 +20,7 @@ NULL
 #' @param freqCut Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the ratio of the most common value to the second most common value. Default 95/5.
 #' @param uniqueCut Utilizing \code{\link[caret:nearZeroVar]{nearZeroVar}} function. The cutoff for the percentage of distinct values out of the number of total samples. Default 10\%.
 #' @param best A logical scalar. Use different methods which maximize IV. Default TRUE.
-#' @param parallel A logical scalar. Use parallel backend. Default FALSE.
+#' @param parallel A logical scalar. Use parallel backend. Default FALSE. In case of Error with pending connections, run the \code{\link{sc.unregister}} function to close all current connections.
 #'
 #' @return The output is a list of cut plan which can be applied to the orginal data frame via
 #'   the \code{\link{predict}} function.
@@ -202,7 +202,8 @@ thresd <- function(data, m, thres) {
 }
 
 #unregistering foreach backend
-unregister <- function(parallel = FALSE) {
+#' @export
+sc.unregister <- function(parallel = FALSE) {
   if (parallel) {
     env <- foreach:::.foreachGlobals
     rm(list = ls(name = env), pos = env)
@@ -211,7 +212,6 @@ unregister <- function(parallel = FALSE) {
 #for numeric binning
 #' @export
 sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, uniqueCut = 10, best = TRUE, parallel = FALSE) {
-  unregister(parallel)
   start_time <- Sys.time()
   target <- deparse(substitute(target))
   if (!(target %in% names(data)))
@@ -253,7 +253,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
                          smb = smb.cuts,
                          bpb = bpb)
     }
-    unregister(parallel)
+    sc.unregister(parallel)
     return(finalBin)
   }
   nzv <- caret::nearZeroVar(data, freqCut = freqCut, uniqueCut = uniqueCut,
@@ -262,7 +262,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
   cut_plan <- lapply(names(data), function(x)
     bestbin(data[[x]], y, n, p, thres, x, best, parallel)
   )
-  unregister(parallel)
+  sc.unregister(parallel)
   names(cut_plan) <- names(data)
   end_time <- Sys.time()
   diff = end_time - start_time
