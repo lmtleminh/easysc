@@ -83,7 +83,7 @@ superbin <- function(X, y, n = 10, p = 3, thres = .5, parallel = FALSE) {
   m <- table(x) %>% as.matrix()
   if (!is.null(m) & length(m) > 1) {
     m <- data.frame(x = as.numeric(rownames(m)), Freq = m)
-    m$Check <- 1
+    m[['Check']] <- 1
     for (i in 1:(nrow(m)-1)) {
       if (m[i + 1,'x'] == m[i,'x'] + 1 & m[i + 1, 'Freq'] >= m[i, 'Freq'])
         m[i,'Check'] <- 0
@@ -92,10 +92,10 @@ superbin <- function(X, y, n = 10, p = 3, thres = .5, parallel = FALSE) {
           m[i,'Check'] <- 0
       }
     }
-    m <- m[m$Check == 1,]
-    m$w <- (m$Freq - min(m$Freq)) / (max(m$Freq) - min(m$Freq))
-    m$w[is.na(m$w)] <- 1
-    m <- m[m$w >=.2, 'x']
+    m <- m[m[['Check']] == 1,]
+    m[['w']] <- (m[['Freq']] - min(m[['Freq']])) / (max(m[['Freq']]) - min(m[['Freq']]))
+    m[['w']][is.na(m[['w']])] <- 1
+    m <- m[m[['w']] >=.2, 'x']
     woeC <- woeZ(cut(X, breaks = c(-Inf, m, Inf)), y)
     len <- length(m)
     findMonotonic <- function(m) {
@@ -153,16 +153,16 @@ bump_bin <- function(X, y, n, p, parallel = FALSE) {
     smp <- df2
     reg <- isoreg(smp[, 1], cor / abs(cor) * smp[, 2])
     cut <- knots(as.stepfun(reg))
-    df2$cut <- cut(df2[['X']], breaks = unique(cut), include.lowest = T)
+    df2[['cut']] <- cut(df2[['X']], breaks = unique(cut), include.lowest = T)
     df3 <- Reduce(rbind,
-                  lapply(split(df2, df2$cut),
+                  lapply(split(df2, df2[['cut']]),
                          function(x) data.frame(n = nrow(x), b = sum(x[['y']]), g = sum(1 - x[['y']]),
                                                 maxx = max(x[['X']]), minx = min(x[['X']]))))
     df4 <- df3[which(df3[["n"]] > n1 & df3[["b"]] > n2 & df3[["g"]] > n2), ]
-    df2$good <- 1 -  df2[['y']]
+    df2[['good']] <- 1 -  df2[['y']]
     out <- smbinning::smbinning.custom(df2, "good", 'X', cuts = df4[['maxx']][-nrow(df4)])
     if (out == "No Bins") return(NULL)
-    out <- out$ivtable
+    out <- out[['ivtable']]
     return(data.frame(iv = out[['IV']][length(out[['IV']])], nbin = nrow(out) - 2,
                       cuts = I(list(df4[['maxx']][-nrow(df4)])),
                       abs_cor = abs(cor(as.numeric(row.names(out)[1:(nrow(out) - 2)]),
@@ -233,7 +233,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
         smb.cuts <- 0
         smb.iv <- -1
       } else {
-        smb.cuts <- thresd(data.frame(X, y), smb$cuts, thres)
+        smb.cuts <- thresd(data.frame(X, y), smb[['cuts']], thres)
         smb.iv <- woeZ(cut(X, breaks = c(-Inf, smb.cuts, Inf)), y)
         attr(smb.cuts, 'method') <- 'smb'
       }
