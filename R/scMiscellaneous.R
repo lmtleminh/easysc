@@ -62,8 +62,7 @@ sc.score <- function(data, model, pdo, score, odd) {
 #extract score point
 #' @export
 sc.point <- function(data, woe, model, pdo, score, odd) {
-  data_0 <- finalize(data)
-  data_1 <- predict(woe, as.data.frame(data_0))
+  data_1 <- predict(woe, as.data.frame(data))
   if (any(class(model) %in% c('glm', 'lm', 'glmboost', 'mboost'))) {
     var <- coef(model)
   } else if (any(class(model) == 'cv.glmnet')) {
@@ -71,7 +70,7 @@ sc.point <- function(data, woe, model, pdo, score, odd) {
     names(var) <- rownames(coef(model, s = 'lambda.1se'))
     var <- var[var!=0]
   }
-  data_0 %<>%
+  data %<>%
     dplyr::select(names(var)[-1])
   data_1 %<>%
     dplyr::select(paste0('woe_', names(var)[-1]))
@@ -83,12 +82,12 @@ sc.point <- function(data, woe, model, pdo, score, odd) {
                             var[['(Intercept)']] / m) * factor_ +
                            offset_ / m, 0)
   }
-  data_2 <- cbind(data_0, data_1)
+  data_2 <- cbind(data, data_1)
   x <- list()
   for (i in 1:m) {
     nam <- paste0('n', i)
     assign(nam, unique(data_2[,c(i, i+m)]))
-    x[[names(data_0)[[i]]]] <- get(nam)
+    x[[names(data)[[i]]]] <- get(nam)
   }
   return(x)
 }
