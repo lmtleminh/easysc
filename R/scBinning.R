@@ -254,6 +254,7 @@ sc.binning <- function(data, target, n = 10, p = 3, thres = .5, freqCut = 95/5, 
                          bpb = bpb)
     }
     sc.unregister(parallel)
+    print(finalBin)
     return(finalBin)
   }
   nzv <- caret::nearZeroVar(data, freqCut = freqCut, uniqueCut = uniqueCut,
